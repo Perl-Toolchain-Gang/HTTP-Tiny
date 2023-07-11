@@ -2,6 +2,8 @@ Release notes for HTTP-Tiny
 
 {{$NEXT}}
 
+0.088     2023-07-11 08:52:54-04:00 America/New_York
+
     [DOCS]
 
     - Update metadata to point to new Perl-Toolchain-Gang repository.
