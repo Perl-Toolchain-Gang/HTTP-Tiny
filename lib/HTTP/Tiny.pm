@@ -1647,9 +1647,9 @@ sub _find_CA_file {
       ? [ 'SSL_options->{SSL_ca_file}', $self->{SSL_options}->{SSL_ca_file} ]
       : [ 'SSL_CERT_FILE', $ENV{SSL_CERT_FILE} ];
 
-    if ( defined $ca_file[1] ) {
-        unless ( -r $ca_file[1] ) {
-            die qq/'$ca_file' from $ca_file[0] not found or not readable\n/;
+    if ( defined $ca_file->[1] ) {
+        unless ( -r $ca_file->[1] ) {
+            die qq/'$ca_file' from $ca_file->[0] not found or not readable\n/;
         }
         return $ca_file;
     }
