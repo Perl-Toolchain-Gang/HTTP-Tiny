@@ -1644,14 +1644,14 @@ sub _find_CA_file {
 
     my $ca_file =
       defined( $self->{SSL_options}->{SSL_ca_file} )
-      ? [ 'SSL_options->{SSL_ca_file}', $self->{SSL_options}->{SSL_ca_file} ]
-      : [ 'SSL_CERT_FILE', $ENV{SSL_CERT_FILE} ];
+      ? { source => 'SSL_options->{SSL_ca_file}', file => $self->{SSL_options}->{SSL_ca_file} }
+      : { source => 'SSL_CERT_FILE',              file => $ENV{SSL_CERT_FILE} };
 
-    if ( defined $ca_file->[1] ) {
-        unless ( -r $ca_file->[1] ) {
-            die qq/'$ca_file' from $ca_file->[0] not found or not readable\n/;
+    if ( defined $ca_file->{file} ) {
+        unless ( -r $ca_file->{file} ) {
+            die qq/'$ca_file->{file}' from $ca_file->{source} not found or not readable\n/;
         }
-        return $ca_file;
+        return $ca_file->{file};
     }
 
     local @INC = @INC;
