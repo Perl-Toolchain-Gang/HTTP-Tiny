@@ -1795,11 +1795,11 @@ attacks|http://en.wikipedia.org/wiki/Machine-in-the-middle_attack>.
 Certificate verification requires a file containing trusted CA certificates.
 
 First, HTTP::Tiny looks in the SSL option C<SSL_ca_file>. If that has a defined
-value, HTT::Tiny uses that. If the file is not readable, HTTP::Tiny fails and does
+value, HTTP::Tiny uses that. If the file is not readable, HTTP::Tiny fails and does
 not look further.
 
 If the SSL option C<SSL_ca_file> is not defined, HTTP::Tiny looks at the environment
-variable C<SSL_CERT_FILE>. If that is defined but the filename is not readable, 
+variable C<SSL_CERT_FILE>. If that is defined but the filename is not readable,
 HTTP::Tiny fails and does not look further.
 
 If the L<Mozilla::CA> module is installed, HTTP::Tiny will use the CA file
