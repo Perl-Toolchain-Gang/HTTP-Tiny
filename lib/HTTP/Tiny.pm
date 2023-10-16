@@ -65,7 +65,7 @@ attributes are modified via accessor, or if the process ID or thread ID change,
 the persistent connection will be dropped.  If you want persistent connections
 across multiple destinations, use multiple HTTP::Tiny objects.
 
-See L</SSL SUPPORT> for more on the C<verify_SSL> and C<SSL_options> attributes.
+See L</TLS/SSL SUPPORT> for more on the C<verify_SSL> and C<SSL_options> attributes.
 
 =cut
 
@@ -1644,14 +1644,14 @@ sub _find_CA_file {
 
     my $ca_file =
       defined( $self->{SSL_options}->{SSL_ca_file} )
-      ? $self->{SSL_options}->{SSL_ca_file}
-      : $ENV{SSL_CERT_FILE};
+      ? { source => 'SSL_options->{SSL_ca_file}', file => $self->{SSL_options}->{SSL_ca_file} }
+      : { source => 'SSL_CERT_FILE',              file => $ENV{SSL_CERT_FILE} };
 
-    if ( defined $ca_file ) {
-        unless ( -r $ca_file ) {
-            die qq/SSL_ca_file '$ca_file' not found or not readable\n/;
+    if ( defined $ca_file->{file} ) {
+        unless ( -r $ca_file->{file} ) {
+            die qq/'$ca_file->{file}' from $ca_file->{source} not found or not readable\n/;
         }
-        return $ca_file;
+        return $ca_file->{file};
     }
 
     local @INC = @INC;
@@ -1794,14 +1794,20 @@ attacks|http://en.wikipedia.org/wiki/Machine-in-the-middle_attack>.
 
 Certificate verification requires a file containing trusted CA certificates.
 
-If the environment variable C<SSL_CERT_FILE> is present, HTTP::Tiny
-will try to find a CA certificate file in that location.
+First, HTTP::Tiny looks in the SSL option C<SSL_ca_file>. If that has a defined
+value, HTTP::Tiny uses that. If the file is not readable, HTTP::Tiny fails and does
+not look further.
+
+If the SSL option C<SSL_ca_file> is not defined, HTTP::Tiny looks at the environment
+variable C<SSL_CERT_FILE>. If that is defined but the filename is not readable,
+HTTP::Tiny fails and does not look further.
 
 If the L<Mozilla::CA> module is installed, HTTP::Tiny will use the CA file
 included with it as a source of trusted CA's.
 
 If that module is not available, then HTTP::Tiny will search several
-system-specific default locations for a CA certificate file:
+system-specific default locations for a CA certificate file. It will use
+the first path that exists:
 
 =for :list
 * /etc/ssl/certs/ca-certificates.crt
@@ -1813,8 +1819,8 @@ system-specific default locations for a CA certificate file:
 * /etc/pki/tls/cacert.pem
 * /etc/certs/ca-certificates.crt
 
-An error will be occur if C<verify_SSL> is true and no CA certificate file
-is available.
+If none of these attempts succeed and C<verify_SSL> is true, HTTP::Tiny
+will return an error when it attempts to fetch an HTTPS resource.
 
 If you desire complete control over TLS/SSL connections, the C<SSL_options>
 attribute lets you provide a hash reference that will be passed through to
@@ -1938,7 +1944,7 @@ L<HTTP::Tiny::UA>.
 * L<IO::Socket::IP> - Required for IPv6 support
 * L<IO::Socket::SSL> - Required for SSL support
 * L<LWP::UserAgent> - If HTTP::Tiny isn't enough for you, this is the "standard" way to do things
-* L<Mozilla::CA> - Required if you want to validate SSL certificates
+* L<Mozilla::CA> - Validate SSL certificates when you don´t have another source of trusted Certificate Authority certificates
 * L<Net::SSLeay> - Required for SSL support
 
 =cut
