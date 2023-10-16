@@ -1944,7 +1944,7 @@ L<HTTP::Tiny::UA>.
 * L<IO::Socket::IP> - Required for IPv6 support
 * L<IO::Socket::SSL> - Required for SSL support
 * L<LWP::UserAgent> - If HTTP::Tiny isn't enough for you, this is the "standard" way to do things
-* L<Mozilla::CA> - Validate SSL certificates when you don't have another source of a Certificate Authority cert
+* L<Mozilla::CA> - Validate SSL certificates when you don´t have another source of trusted Certificate Authority certificates
 * L<Net::SSLeay> - Required for SSL support
 
 =cut
