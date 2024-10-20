@@ -65,7 +65,8 @@ attributes are modified via accessor, or if the process ID or thread ID change,
 the persistent connection will be dropped.  If you want persistent connections
 across multiple destinations, use multiple HTTP::Tiny objects.
 
-See L</SSL SUPPORT> for more on the C<verify_SSL> and C<SSL_options> attributes.
+See L</TLS/SSL SUPPORT> for more on the C<verify_SSL> and C<SSL_options>
+attributes.
 
 =cut
 
