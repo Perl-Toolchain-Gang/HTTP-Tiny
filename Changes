@@ -2,6 +2,18 @@ Release notes for HTTP-Tiny
 
 {{$NEXT}}
 
+    [CHANGED]
+
+    - Find the certificate bundle via IO::Socket::SSL rather than implementing
+      it in HTTP::Tiny.
+
+    - When encoding form data, given a hashref with an arrayref value,
+      preserve the order of the values in the arrayref rather than sorting.
+
+    [DOCS]
+
+    - Fixed internal link to "TLS/SSL SUPPORT" section
+
 0.088     2023-07-11 08:52:54-04:00 America/New_York
 
     [DOCS]
