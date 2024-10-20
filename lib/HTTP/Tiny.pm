@@ -244,7 +244,7 @@ This method executes a C<POST> request and sends the key/value pairs from a
 form data hash or array reference to the given URL with a C<content-type> of
 C<application/x-www-form-urlencoded>.  If data is provided as an array
 reference, the order is preserved; if provided as a hash reference, the terms
-are sorted on key and value for consistency.  See documentation for the
+are sorted by key for consistency.  See documentation for the
 C<www_form_urlencode> method for details on the encoding.
 
 The URL must have unsafe characters escaped and international domain names
@@ -510,7 +510,10 @@ sub www_form_urlencode {
     (ref $data eq 'HASH' || ref $data eq 'ARRAY')
         or _croak("form data must be a hash or array reference\n");
 
-    my @params = ref $data eq 'HASH' ? %$data : @$data;
+    my @params
+        = ref $data eq 'HASH'
+        ? map { ($_ => $data->{$_}) } sort keys %$data
+        : @$data;
     @params % 2 == 0
         or _croak("form data reference must have an even number of terms\n");
 
@@ -527,7 +530,7 @@ sub www_form_urlencode {
         }
     }
 
-    return join("&", (ref $data eq 'ARRAY') ? (@terms) : (sort @terms) );
+    return join("&", @terms);
 }
 
 =method can_ssl
