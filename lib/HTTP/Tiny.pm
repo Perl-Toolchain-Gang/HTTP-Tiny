@@ -865,7 +865,7 @@ sub _prepare_headers_and_cb {
         }
         elsif ( length $args->{content} ) {
             my $content = $args->{content};
-            if ( $] ge '5.008' ) {
+            if ( "$]" >= 5.008 ) {
                 utf8::downgrade($content, 1)
                     or die(qq/Wide character in request message body\n/);
             }
@@ -1032,7 +1032,7 @@ my $unsafe_char = qr/[^A-Za-z0-9\-\._~]/;
 sub _uri_escape {
     my ($self, $str) = @_;
     return "" if !defined $str;
-    if ( $] ge '5.008' ) {
+    if ( "$]" >= 5.008 ) {
         utf8::encode($str);
     }
     else {
@@ -1189,7 +1189,7 @@ sub write {
     @_ == 2 || die(q/Usage: $handle->write(buf)/ . "\n");
     my ($self, $buf) = @_;
 
-    if ( $] ge '5.008' ) {
+    if ( "$]" >= 5.008 ) {
         utf8::downgrade($buf, 1)
             or die(qq/Wide character in write()\n/);
     }
@@ -1474,7 +1474,7 @@ sub write_content_body {
         defined $data && length $data
           or last;
 
-        if ( $] ge '5.008' ) {
+        if ( "$]" >= 5.008 ) {
             utf8::downgrade($data, 1)
                 or die(qq/Wide character in write_content()\n/);
         }
@@ -1521,7 +1521,7 @@ sub write_chunked_body {
         defined $data && length $data
           or last;
 
-        if ( $] ge '5.008' ) {
+        if ( "$]" >= 5.008 ) {
             utf8::downgrade($data, 1)
                 or die(qq/Wide character in write_chunked_body()\n/);
         }
