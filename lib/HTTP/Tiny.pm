@@ -1051,7 +1051,7 @@ use warnings;
 
 use Errno      qw[EINTR EPIPE];
 use IO::Socket qw[SOCK_STREAM];
-use Socket     qw[SOL_SOCKET SO_KEEPALIVE];
+use Socket     qw[SOL_SOCKET SO_KEEPALIVE TCP_NODELAY IPPROTO_TCP];
 
 # PERL_HTTP_TINY_IPV4_ONLY is a private environment variable to force old
 # behavior if someone is unable to boostrap CPAN from a new perl install; it is
@@ -1116,6 +1116,8 @@ sub connect {
         Type      => SOCK_STREAM,
         Timeout   => $self->{timeout},
     ) or die(qq/Could not connect to '$host:$port': $@\n/);
+
+    $self->{fh}->setsockopt(IPPROTO_TCP, TCP_NODELAY, 1);
 
     binmode($self->{fh})
       or die(qq/Could not binmode() socket: '$!'\n/);
