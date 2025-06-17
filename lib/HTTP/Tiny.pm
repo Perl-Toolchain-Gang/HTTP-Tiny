@@ -24,6 +24,8 @@ This constructor returns a new HTTP::Tiny object.  Valid attributes include:
 * C<local_address> — The local IP address to bind to
 * C<keep_alive> — Whether to reuse the last connection (if for the same
   scheme, host and port) (defaults to 1)
+* C<keep_alive_timeout> — How many seconds between a request to keep a
+  keepalive connection available for (defaults to 0, unlimited)
 * C<max_redirect> — Maximum number of redirects allowed (defaults to 5)
 * C<max_size> — Maximum response size in bytes (only when not using a data
   callback).  If defined, requests with responses larger than this will return
@@ -64,6 +66,12 @@ single destination scheme, host and port.  If any connection-relevant
 attributes are modified via accessor, or if the process ID or thread ID change,
 the persistent connection will be dropped.  If you want persistent connections
 across multiple destinations, use multiple HTTP::Tiny objects.
+
+The C<keep_alive_timeout> parameter allows you to control how long a
+keep alive connection will be considered for reuse. By setting this lower
+than the server keep alive time, this allows you to avoid race conditions where
+the server closes the connection while preparing to write the request on
+a reused persistent connection.
 
 See L</TLS/SSL SUPPORT> for more on the C<verify_SSL> and C<SSL_options>
 attributes.
@@ -127,6 +135,7 @@ sub new {
         max_redirect => 5,
         timeout      => defined $args{timeout} ? $args{timeout} : 60,
         keep_alive   => 1,
+        keep_alive_timeout => 0,
         verify_SSL   => defined $args{verify_SSL} ? $args{verify_SSL} : _verify_SSL_default(),
         no_proxy     => $ENV{no_proxy},
     };
@@ -694,6 +703,7 @@ sub _request {
         && $response->{protocol} eq 'HTTP/1.1'
         && ($response->{headers}{connection} || '') ne 'close'
     ) {
+        $handle->_update_last_used();
         $self->{handle} = $handle;
     }
     else {
@@ -723,8 +733,11 @@ sub _open_handle {
         SSL_options     => $self->{SSL_options},
         verify_SSL      => $self->{verify_SSL},
         local_address   => $self->{local_address},
-        keep_alive      => $self->{keep_alive}
+        keep_alive      => $self->{keep_alive},
+        keep_alive_timeout => $self->{keep_alive_timeout}
     );
+
+    require Time::HiRes if $self->{keep_alive_timeout} > 0;
 
     if ($self->{_has_proxy}{$scheme} && ! grep { $host =~ /\Q$_\E$/ } @{$self->{no_proxy}}) {
         return $self->_proxy_connect( $request, $handle );
@@ -1621,6 +1634,19 @@ sub can_write {
     return $self->_do_timeout('write', @_)
 }
 
+sub _has_keep_alive_expired {
+    my $self = shift;
+    return unless $self->{keep_alive_timeout} > 0;
+    my $now = Time::HiRes::time();
+    return $now - ($self->{last_used} || $now) > $self->{keep_alive_timeout};
+}
+
+sub _update_last_used {
+    my $self = shift;
+    return unless $self->{keep_alive_timeout} > 0;
+    $self->{last_used} = Time::HiRes::time();
+}
+
 sub _assert_ssl {
     my($ok, $reason) = HTTP::Tiny->can_ssl();
     die $reason unless $ok;
@@ -1636,6 +1662,7 @@ sub can_reuse {
         || $host ne $self->{host}
         || $port ne $self->{port}
         || $peer ne $self->{peer}
+        || $self->_has_keep_alive_expired()
         || eval { $self->can_read(0) }
         || $@ ;
         return 1;
