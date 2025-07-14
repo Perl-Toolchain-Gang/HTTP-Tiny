@@ -1666,6 +1666,7 @@ sub _find_CA {
     #
     foreach my $ca_bundle (
         "/etc/ssl/certs/ca-certificates.crt",     # Debian/Ubuntu/Gentoo etc.
+        "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", # Fedora 43
         "/etc/pki/tls/certs/ca-bundle.crt",       # Fedora/RHEL
         "/etc/ssl/ca-bundle.pem",                 # OpenSUSE
         "/etc/openssl/certs/ca-certificates.crt", # NetBSD
@@ -1818,6 +1819,7 @@ a CA certificate file as a last resort:
 
 =for :list
 * /etc/ssl/certs/ca-certificates.crt
+* /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
 * /etc/pki/tls/certs/ca-bundle.crt
 * /etc/ssl/ca-bundle.pem
 * /etc/openssl/certs/ca-certificates.crt
