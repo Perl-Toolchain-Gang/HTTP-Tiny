@@ -24,8 +24,8 @@ This constructor returns a new HTTP::Tiny object.  Valid attributes include:
 * C<local_address> — The local IP address to bind to
 * C<keep_alive> — Whether to reuse the last connection (if for the same
   scheme, host and port) (defaults to 1)
-* C<keep_alive_timeout> — How many seconds between a request to keep a
-  keepalive connection available for (defaults to 0, unlimited)
+* C<keep_alive_timeout> — How many seconds to keep a connection available
+  for after a request (defaults to 0, unlimited)
 * C<max_redirect> — Maximum number of redirects allowed (defaults to 5)
 * C<max_size> — Maximum response size in bytes (only when not using a data
   callback).  If defined, requests with responses larger than this will return
