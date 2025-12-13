@@ -2,6 +2,25 @@ Release notes for HTTP-Tiny
 
 {{$NEXT}}
 
+    [ADDED]
+
+    - Added keep_alive_timeout to force keepalive connections to be closed
+      based on a timeout.
+
+    [CHANGED]
+
+    - Optional tests are always required when releasing.
+
+    - Always use TCP_NODELAY option.
+
+    [FIXED]
+
+    - Fixed test incorrectly testing cookie jar interactions multiple times.
+
+    - Fixed perl version comparisons to work when not starting with 5.
+
+    - Fixed link to LIMITATIONS in documentation.
+
 0.090     2024-11-12 11:51:32+01:00 Europe/Brussels
 
     - No changes from 0.089-TRIAL
