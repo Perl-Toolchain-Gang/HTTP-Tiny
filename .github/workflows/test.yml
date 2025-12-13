@@ -4,11 +4,12 @@ on:
   pull_request: ~
 
 jobs:
-  perl-versions:
+  perl-images:
     runs-on: ubuntu-latest
-    name: Calculate Perl Versions
+    name: Calculate Perl Images
     outputs:
-      versions: ${{ steps.perl-versions.outputs.perl-versions }}
+      images: ${{ toJSON(fromJSON(steps.perl-images.outputs.result).images) }}
+      last-image: ${{ fromJSON(steps.perl-images.outputs.result).last-image }}
     steps:
       - uses: actions/checkout@v4
       - id: perl-versions
@@ -16,6 +17,28 @@ jobs:
         with:
           since-perl: v5.14
           with-devel: true
+      - id: perl-images
+        uses: actions/github-script@v7
+        env:
+          PERL_VERSIONS: ${{ steps.perl-versions.outputs.perl-versions }}
+        with:
+          script: |
+            const perl_versions = JSON.parse(process.env.PERL_VERSIONS);
+            const images = perl_versions.map((v) => {
+              const res = v.match(/^5\.(\d+)$/);
+              let suffix = '';
+              if (res) {
+                const [, minor] = res;
+                if (minor < 26) {
+                  suffix = '-buster';
+                }
+              }
+              return `perl:${v}${suffix}`;
+            });
+            return {
+              images,
+              'last-image': images.findLast(i => i.match(/^perl:5/)),
+            };
 
   build:
     runs-on: ubuntu-latest
@@ -58,17 +81,17 @@ jobs:
 
   test:
     needs:
-      - perl-versions
+      - perl-images
       - build
 
     strategy:
       fail-fast: false
       matrix:
-        perl-version: ${{ fromJson(needs.perl-versions.outputs.versions) }}
+        image: ${{ fromJSON(needs.perl-images.outputs.images) }}
 
     runs-on: ubuntu-latest
     container:
-      image: perl:${{ matrix.perl-version }}-buster
+      image: ${{ matrix.image }}
 
     env:
       AUTOMATED_TESTING: 1
@@ -82,7 +105,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.perl-cpm
-          key: cpm-perl:${{ matrix.perl-version }}-buster
+          key: cpm-${{ matrix.image }}
       - name: Setup local::lib
         run: |
           echo "$RUNNER_TEMP/perl5/bin" >> "$GITHUB_PATH"
@@ -121,12 +144,12 @@ jobs:
 
   test-xt:
     needs:
-      - perl-versions
+      - perl-images
       - build
 
     runs-on: ubuntu-latest
     container:
-      image: perl:5.36-buster
+      image: ${{ needs.perl-images.outputs.last-image }}
 
     env:
       AUTOMATED_TESTING: 1
@@ -139,7 +162,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.perl-cpm
-          key: cpm-perl:5.36-buster
+          key: cpm-${{ matrix.image }}
       - name: Setup local::lib
         run: |
           echo "$RUNNER_TEMP/perl5/bin" >> "$GITHUB_PATH"
