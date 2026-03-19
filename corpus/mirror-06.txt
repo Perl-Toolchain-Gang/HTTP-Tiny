@@ -1,0 +1,22 @@
+url
+  http://example.com/partial.txt
+continue
+initial_content
+  abcdefg
+----------
+GET /partial.txt HTTP/1.1
+Host: example.com
+Connection: close
+If-Range: Tue, 01 Feb 1994 00:00:00 GMT
+Range: bytes=7-
+User-Agent: HTTP-Tiny/VERSION
+
+----------
+HTTP/1.1 206 Partial Content
+Date: Thu, 03 Feb 1994 00:00:00 GMT
+Last-Modified: Wed, 02 Feb 1994 00:00:00 GMT
+Content-Range: bytes 7-13/14
+Content-Length: 7
+
+hijklmn
+
