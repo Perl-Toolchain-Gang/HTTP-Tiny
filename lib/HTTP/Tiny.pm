@@ -308,6 +308,14 @@ If the file was modified and the server response includes a properly
 formatted C<Last-Modified> header, the file modification time will
 be updated accordingly.
 
+If the C<continue> option is set and the destination file already exists with
+content, the request will include C<Range> and C<If-Range> headers to attempt
+resuming an incomplete download.  On a C<206 Partial Content> response, the
+new data is appended to the existing file.  On a C<200 OK> response (server
+does not support range requests or the resource changed), the file is
+replaced in full.  On a C<412 Precondition Failed> response, the method
+falls back to a standard conditional C<GET> using C<If-Modified-Since>.
+
 =cut
 
 sub mirror {
@@ -321,6 +329,67 @@ sub mirror {
             $headers->{lc $key} = $value;
         }
         $args->{headers} = $headers;
+    }
+
+    if ( $args->{continue} && -e $file ) {
+        my @stat = stat($file);
+        my ($size, $mtime) = @stat[7, 9];
+        if ( $size && $mtime ) {
+            my $tempfile = $file . int(rand(2**31));
+            require Fcntl;
+            sysopen my $fh, $tempfile, Fcntl::O_CREAT()|Fcntl::O_EXCL()|Fcntl::O_WRONLY()
+                or _croak(qq/Error: Could not create temporary file $tempfile for downloading: $!\n/);
+            binmode $fh;
+            my %resume_headers = %{ $args->{headers} || {} };
+            $resume_headers{'range'}    ||= "bytes=$size-";
+            $resume_headers{'if-range'} ||= $self->_http_date($mtime);
+            my $response = $self->request('GET', $url, {
+                %$args,
+                headers       => \%resume_headers,
+                data_callback => sub { print {$fh} $_[0] },
+            });
+            close $fh
+                or _croak(qq/Error: Caught error closing temporary file $tempfile: $!\n/);
+
+            if ( $response->{status} eq '206' ) {
+                open my $dest, '>>', $file
+                    or do { unlink $tempfile; _croak(qq/Error opening $file for appending: $!\n/) };
+                binmode $dest;
+                open my $src, '<', $tempfile
+                    or do { unlink $tempfile; _croak(qq/Error opening $tempfile for reading: $!\n/) };
+                binmode $src;
+                while ( read($src, my $buf, 65536) ) { print {$dest} $buf }
+                close $src;
+                close $dest
+                    or do { unlink $tempfile; _croak(qq/Error closing $file after append: $!\n/) };
+                unlink $tempfile;
+                $response->{success} = 1;
+                my $lm = $response->{headers}{'last-modified'};
+                if ( $lm and my $new_mtime = $self->_parse_http_date($lm) ) {
+                    utime $new_mtime, $new_mtime, $file;
+                }
+                return $response;
+            }
+            elsif ( $response->{success} ) {
+                # 200 OK: server returned full content; replace the file
+                rename $tempfile, $file
+                    or _croak(qq/Error replacing $file with $tempfile: $!\n/);
+                my $lm = $response->{headers}{'last-modified'};
+                if ( $lm and my $new_mtime = $self->_parse_http_date($lm) ) {
+                    utime $new_mtime, $new_mtime, $file;
+                }
+                return $response;
+            }
+            else {
+                unlink $tempfile;
+                if ( $response->{status} eq '304' ) {
+                    $response->{success} = 1;
+                    return $response;
+                }
+                # 412 or other failure: fall through to normal mirror behavior
+                return $response unless $response->{status} eq '412';
+            }
+        }
     }
 
     if ( -e $file and my $mtime = (stat($file))[9] ) {
