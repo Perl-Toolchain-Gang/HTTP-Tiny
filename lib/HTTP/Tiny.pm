@@ -332,7 +332,10 @@ sub mirror {
     sysopen my $fh, $tempfile, Fcntl::O_CREAT()|Fcntl::O_EXCL()|Fcntl::O_WRONLY()
        or _croak(qq/Error: Could not create temporary file $tempfile for downloading: $!\n/);
     binmode $fh;
-    $args->{data_callback} = sub { print {$fh} $_[0] };
+    my $user_cb = $args->{data_callback};
+    $args->{data_callback} = $user_cb
+        ? sub { print {$fh} $_[0]; $user_cb->(@_) }
+        : sub { print {$fh} $_[0] };
     my $response = $self->request('GET', $url, $args);
     close $fh
         or _croak(qq/Error: Caught error closing temporary file $tempfile: $!\n/);
