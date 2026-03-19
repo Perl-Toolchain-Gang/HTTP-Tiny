@@ -1178,12 +1178,14 @@ sub start_ssl {
     }
 
     my $ssl_args = $self->_ssl_args($host);
+    my $user_cb  = $ssl_args->{SSL_create_ctx_callback};
     IO::Socket::SSL->start_SSL(
         $self->{fh},
         %$ssl_args,
         SSL_create_ctx_callback => sub {
             my $ctx = shift;
             Net::SSLeay::CTX_set_mode($ctx, Net::SSLeay::MODE_AUTO_RETRY());
+            $user_cb->($ctx) if $user_cb;
         },
     );
 
