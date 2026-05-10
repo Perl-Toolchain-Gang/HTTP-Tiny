@@ -3,22 +3,25 @@ on:
   push: ~
   pull_request: ~
 
+permissions:
+  contents: read
+
 jobs:
   perl-images:
     runs-on: ubuntu-latest
     name: Calculate Perl Images
     outputs:
       images: ${{ toJSON(fromJSON(steps.perl-images.outputs.result).images) }}
-      last-image: ${{ fromJSON(steps.perl-images.outputs.result).last-image }}
+      last-image: ${{ toJSON(fromJSON(steps.perl-images.outputs.result).last-image) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - id: perl-versions
-        uses: perl-actions/perl-versions@v1
+        uses: perl-actions/perl-versions@v2
         with:
           since-perl: v5.14
           with-devel: true
       - id: perl-images
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PERL_VERSIONS: ${{ steps.perl-versions.outputs.perl-versions }}
         with:
@@ -27,29 +30,39 @@ jobs:
             const images = perl_versions.map((v) => {
               const res = v.match(/^5\.(\d+)$/);
               let suffix = '';
+              let cpm_version = 'v1.1.0';
               if (res) {
                 const [, minor] = res;
                 if (minor < 26) {
                   suffix = '-buster';
                 }
+                if (minor < 24) {
+                  cpm_version = '0.998003';
+                }
               }
-              return `perl:${v}${suffix}`;
+              return {
+                version: v,
+                image: `perl:${v}${suffix}`,
+                cpm_version: cpm_version,
+                cpm_url: `https://raw.githubusercontent.com/skaji/cpm/${cpm_version}/cpm`,
+              };
             });
             return {
               images,
-              'last-image': images.findLast(i => i.match(/^perl:5/)),
+              'last-image': images.findLast(i => i.image.match(/^perl:5/)),
             };
 
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
         with:
           path: ~/.perl-cpm
           key: cpm-${{ runner.os }}
       - name: Setup local::lib
         run: |
+          mkdir -p "$RUNNER_TEMP/perl5/bin"
           echo "$RUNNER_TEMP/perl5/bin" >> "$GITHUB_PATH"
           echo "PERL5LIB=$RUNNER_TEMP/perl5/lib/perl5:$PERL5LIB" >> "$GITHUB_ENV"
           echo "PERL_MB_OPT=--install_base $RUNNER_TEMP/perl5" >> "$GITHUB_ENV"
@@ -60,18 +73,21 @@ jobs:
         with:
           sources: dist.ini
           phases: author
+      - name: Fetch cpm
+        run: |
+          curl -o "$RUNNER_TEMP/perl5/bin/cpm" "https://raw.githubusercontent.com/skaji/cpm/v1.1.0/cpm"
+          chmod +x "$RUNNER_TEMP/perl5/bin/cpm"
       - name: Install authordeps
-        uses: perl-actions/install-with-cpm@v1
-        with:
-          sudo: false
-          install: ${{ steps.authordeps.outputs.prereqs }}
+        env:
+          PREREQS: ${{ steps.authordeps.outputs.prereqs }}
+        run: cpm install -g $PREREQS
       - name: Build
         id: build
         run: |
           DZIL_COLOR=1 dzil build --no-tgz | tee "/tmp/dzil-build.log"
           echo build="$(grep --only-matching 'built in .*' "/tmp/dzil-build.log" | tail -1 | cut -c10-)" >> "$GITHUB_OUTPUT"
       - name: Upload build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.build.outputs.build }}
           path: ${{ steps.build.outputs.build }}
@@ -91,23 +107,26 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: ${{ matrix.image }}
+      image: ${{ matrix.image.image }}
 
     env:
       AUTOMATED_TESTING: 1
       PERL_USE_UNSAFE_INC: 0
 
+    name: test (perl ${{ matrix.image.version }})
+
     steps:
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ needs.build.outputs.name }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/.perl-cpm
-          key: cpm-${{ matrix.image }}
+          key: cpm-${{ job.container }}
       - name: Setup local::lib
         run: |
+          mkdir -p "$RUNNER_TEMP/perl5/bin"
           echo "$RUNNER_TEMP/perl5/bin" >> "$GITHUB_PATH"
           echo "PERL5LIB=$RUNNER_TEMP/perl5/lib/perl5:$PERL5LIB" >> "$GITHUB_ENV"
           echo "PERL_MB_OPT=--install_base $RUNNER_TEMP/perl5" >> "$GITHUB_ENV"
@@ -117,11 +136,14 @@ jobs:
         uses: perl-actions/get-prereqs@v1
         with:
           phases: configure
+      - name: Fetch cpm
+        run: |
+          curl -o "$RUNNER_TEMP/perl5/bin/cpm" "${{ matrix.image.cpm_url }}"
+          chmod +x "$RUNNER_TEMP/perl5/bin/cpm"
       - name: Install configure deps
-        uses: perl-actions/install-with-cpm@v1
-        with:
-          sudo: false
-          install: ${{ steps.configure.outputs.prereqs }}
+        env:
+          PREREQS: ${{ steps.configure.outputs.prereqs }}
+        run: cpm install -g $PREREQS
       - name: Run Makefile.PL
         run: perl Makefile.PL
       - name: Extract dependecies
@@ -133,10 +155,9 @@ jobs:
           exclude: |
             ^lib$
       - name: Install deps
-        uses: perl-actions/install-with-cpm@v1
-        with:
-          sudo: false
-          install: ${{ steps.prereqs.outputs.prereqs }}
+        env:
+          PREREQS: ${{ steps.prereqs.outputs.prereqs }}
+        run: cpm install -g $PREREQS
       - name: Run the tests
         run: make test
         env:
@@ -149,36 +170,44 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: ${{ needs.perl-images.outputs.last-image }}
+      image: ${{ fromJSON(needs.perl-images.outputs.last-image).image }}
 
     env:
       AUTOMATED_TESTING: 1
 
     steps:
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ needs.build.outputs.name }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/.perl-cpm
-          key: cpm-${{ matrix.image }}
+          key: cpm-${{ job.container }}
       - name: Setup local::lib
         run: |
+          mkdir -p "$RUNNER_TEMP/perl5/bin"
           echo "$RUNNER_TEMP/perl5/bin" >> "$GITHUB_PATH"
           echo "PERL5LIB=$RUNNER_TEMP/perl5/lib/perl5:$PERL5LIB" >> "$GITHUB_ENV"
           echo "PERL_MB_OPT=--install_base $RUNNER_TEMP/perl5" >> "$GITHUB_ENV"
           echo "PERL_MM_OPT=INSTALL_BASE=$RUNNER_TEMP/perl5" >> "$GITHUB_ENV"
+      - name: Fetch cpm
+        run: |
+          curl -o "$RUNNER_TEMP/perl5/bin/cpm" "${{ fromJSON(needs.perl-images.outputs.last-image).cpm_url }}"
+          chmod +x "$RUNNER_TEMP/perl5/bin/cpm"
       - name: Extract configure dependecies
         id: configure
         uses: perl-actions/get-prereqs@v1
         with:
           phases: configure
       - name: Install configure deps
-        uses: perl-actions/install-with-cpm@v1
-        with:
-          sudo: false
-          install: ${{ steps.configure.outputs.prereqs }}
+        env:
+          PREREQS: ${{ steps.configure.outputs.prereqs }}
+        run: cpm install -g $PREREQS
+      - name: Install configure deps
+        env:
+          PREREQS: ${{ steps.configure.outputs.prereqs }}
+        run: cpm install -g $PREREQS
       - name: Run Makefile.PL
         run: perl Makefile.PL
       - name: Extract dependecies
@@ -190,10 +219,9 @@ jobs:
           exclude: |
             ^lib$
       - name: Install deps
-        uses: perl-actions/install-with-cpm@v1
-        with:
-          sudo: false
-          install: ${{ steps.prereqs.outputs.prereqs }}
+        env:
+          PREREQS: ${{ steps.prereqs.outputs.prereqs }}
+        run: cpm install -g $PREREQS
       - name: Run the xt tests
         run: prove -l xt
         env:
