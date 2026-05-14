@@ -984,9 +984,11 @@ sub _maybe_redirect {
         and $headers->{location}
         and @{$args->{_redirects}} < $self->{max_redirect}
     ) {
-        my $location = ($headers->{location} =~ /^\//)
+        my $location = $headers->{location} =~ m{^//}
+        ? "$request->{scheme}:$headers->{location}"
+        : $headers->{location} =~ m{^/}
             ? "$request->{scheme}://$request->{host_port}$headers->{location}"
-            : $headers->{location} ;
+            : $headers->{location};
         my ($to_scheme, $to_host, $to_port) = $self->_split_url($location);
         if (!$self->{allow_downgrade} && $request->{scheme} eq 'https' && $to_scheme eq 'http' ) {
             return;
