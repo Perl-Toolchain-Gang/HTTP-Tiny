@@ -18,6 +18,10 @@ This constructor returns a new HTTP::Tiny object.  Valid attributes include:
 * C<agent> — A user-agent string (defaults to 'HTTP-Tiny/$VERSION'). If
   C<agent> — ends in a space character, the default user-agent string is
   appended.
+* C<allow_downgrade> — If a 3xx redirect changes the scheme from C<https> to
+  plain C<http>, HTTP::Tiny will by default refuse to follow it, returning the
+  3xx response. Set this to a true value to revert to the legacy behavior of
+  redirecting C<https> to C<http>. Default is C<false>.
 * C<cookie_jar> — An instance of L<HTTP::CookieJar> — or equivalent class
   that supports the C<add> and C<cookie_header> methods
 * C<default_headers> — A hashref of default headers to apply to requests
@@ -81,8 +85,8 @@ attributes.
 my @attributes;
 BEGIN {
     @attributes = qw(
-        cookie_jar default_headers http_proxy https_proxy keep_alive
-        local_address max_redirect max_size proxy no_proxy
+        allow_downgrade cookie_jar default_headers http_proxy https_proxy
+        keep_alive local_address max_redirect max_size proxy no_proxy
         SSL_options verify_SSL
     );
     my %persist_ok = map {; $_ => 1 } qw(
@@ -972,6 +976,11 @@ sub _maybe_redirect {
         my $location = ($headers->{location} =~ /^\//)
             ? "$request->{scheme}://$request->{host_port}$headers->{location}"
             : $headers->{location} ;
+        my ($to_scheme) = $self->_split_url($location);
+        if (!$self->{allow_downgrade} && $request->{scheme} eq 'https' && $to_scheme eq 'http' ) {
+            return;
+        }
+
         return (($status eq '303' ? 'GET' : $method), $location);
     }
     return;
@@ -1767,6 +1776,7 @@ sub _ssl_args {
 =for Pod::Coverage
 SSL_options
 agent
+allow_downgrade
 cookie_jar
 default_headers
 http_proxy

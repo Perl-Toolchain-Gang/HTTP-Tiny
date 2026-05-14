@@ -1,6 +1,10 @@
 Release notes for HTTP-Tiny
 
 {{$NEXT}}
+    [CHANGED]
+
+    - Redirects are no longer automatically followed when going from https to http.
+      Use allow_downgrade to revert to the original behaviour.
 
 0.093     2026-05-11 17:18:12+02:00 Europe/Brussels (TRIAL RELEASE)
 
