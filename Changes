@@ -1,7 +1,11 @@
 Release notes for HTTP-Tiny
 
 {{$NEXT}}
-    [CHANGED]
+    [!!! SECURITY !!!]
+
+    - Caller-supplied C<Authorization>, C<Cookie>, and C<Proxy-Authorization>
+      headers are now stripped on cross-origin redirects by default. Use
+      allow_credentialed_redirects to opt out.
 
     - Redirects are no longer automatically followed when going from https to http.
       Use allow_downgrade to revert to the original behaviour.
