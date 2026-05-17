@@ -18,6 +18,16 @@ This constructor returns a new HTTP::Tiny object.  Valid attributes include:
 * C<agent> — A user-agent string (defaults to 'HTTP-Tiny/$VERSION'). If
   C<agent> — ends in a space character, the default user-agent string is
   appended.
+* C<allow_credentialed_redirects> - If a 3xx redirects to a different scheme,
+  host or port, by default HTTP::Tiny will strip away caller-supplied
+  C<Authorization>, C<Cookie> and C<Proxy-Authorization> headers from the
+  redirected request and from all subsequent requests in the chain. Set this to a
+  true value to revert to the legacy behavior of forwarding those headers.
+  Default is C<false>.
+* C<allow_downgrade> — If a 3xx redirect changes the scheme from C<https> to
+  plain C<http>, HTTP::Tiny will by default refuse to follow it, returning the
+  3xx response. Set this to a true value to revert to the legacy behavior of
+  redirecting C<https> to C<http>. Default is C<false>.
 * C<cookie_jar> — An instance of L<HTTP::CookieJar> — or equivalent class
   that supports the C<add> and C<cookie_header> methods
 * C<default_headers> — A hashref of default headers to apply to requests
@@ -81,9 +91,9 @@ attributes.
 my @attributes;
 BEGIN {
     @attributes = qw(
-        cookie_jar default_headers http_proxy https_proxy keep_alive
-        local_address max_redirect max_size proxy no_proxy
-        SSL_options verify_SSL
+        allow_credentialed_redirects allow_downgrade cookie_jar default_headers
+        http_proxy https_proxy keep_alive local_address max_redirect max_size
+        proxy no_proxy SSL_options verify_SSL
     );
     my %persist_ok = map {; $_ => 1 } qw(
         cookie_jar default_headers max_redirect max_size
@@ -364,8 +374,7 @@ Don't use C<get> when you really want C<GET>.  See L</LIMITATIONS> for
 how this applies to redirection.
 
 If the URL includes a "user:password" stanza, they will be used for Basic-style
-authorization headers.  (Authorization headers will not be included in a
-redirected request.) For example:
+authorization headers.  For example:
 
     $http->request('GET', 'http://Aladdin:open sesame@example.com/');
 
@@ -373,6 +382,10 @@ If the "user:password" stanza contains reserved characters, they must
 be percent-escaped:
 
     $http->request('GET', 'http://john%40example.com:password@example.com/');
+
+Caller-supplied C<Authorization>, C<Cookie> and C<Proxy-Authorization> headers
+are stripped on cross-origin redirects. See L</new>'s
+C<allow_credentialed_redirects> attribute to opt out.
 
 A hashref of options may be appended to modify the request.
 
@@ -458,6 +471,7 @@ contain 599, and the C<content> field will contain the text of the error.
 =cut
 
 my %idempotent = map { $_ => 1 } qw/GET HEAD PUT DELETE OPTIONS TRACE/;
+my %sensitive_headers = map { $_ => 1 } qw/authorization cookie proxy-authorization/;
 
 sub request {
     my ($self, $method, $url, $args) = @_;
@@ -842,6 +856,7 @@ sub _prepare_headers_and_cb {
     for ($self->{default_headers}, $args->{headers}) {
         next unless defined;
         while (my ($k, $v) = each %$_) {
+            next if $args->{_strip_credentials} && exists $sensitive_headers{lc $k};
             $request->{headers}{lc $k} = $v;
             $request->{header_case}{lc $k} = $k;
         }
@@ -969,9 +984,24 @@ sub _maybe_redirect {
         and $headers->{location}
         and @{$args->{_redirects}} < $self->{max_redirect}
     ) {
-        my $location = ($headers->{location} =~ /^\//)
+        my $location = $headers->{location} =~ m{^//}
+        ? "$request->{scheme}:$headers->{location}"
+        : $headers->{location} =~ m{^/}
             ? "$request->{scheme}://$request->{host_port}$headers->{location}"
-            : $headers->{location} ;
+            : $headers->{location};
+        my ($to_scheme, $to_host, $to_port) = $self->_split_url($location);
+        if (!$self->{allow_downgrade} && $request->{scheme} eq 'https' && $to_scheme eq 'http' ) {
+            return;
+        }
+        if (
+            !$self->{allow_credentialed_redirects}
+            && (   $request->{scheme} ne $to_scheme
+                || $request->{host} ne $to_host
+                || $request->{port} ne $to_port )
+        ) {
+            $args->{_strip_credentials} = 1;
+        }
+
         return (($status eq '303' ? 'GET' : $method), $location);
     }
     return;
@@ -1767,6 +1797,8 @@ sub _ssl_args {
 =for Pod::Coverage
 SSL_options
 agent
+allow_credentialed_redirects
+allow_downgrade
 cookie_jar
 default_headers
 http_proxy
