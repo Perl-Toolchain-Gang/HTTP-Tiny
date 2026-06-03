@@ -1,6 +1,8 @@
 Release notes for HTTP-Tiny
 
 {{$NEXT}}
+
+0.095     2026-06-03 13:10:05+02:00 Europe/Brussels (TRIAL RELEASE)
     [!!! SECURITY !!!]
 
     - Caller-supplied C<Authorization>, C<Cookie>, and C<Proxy-Authorization>
