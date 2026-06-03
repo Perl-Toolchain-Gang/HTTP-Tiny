@@ -15,18 +15,18 @@ sub _croak { require Carp; Carp::croak(@_) }
 This constructor returns a new HTTP::Tiny object.  Valid attributes include:
 
 =for :list
-* C<agent> — A user-agent string (defaults to 'HTTP-Tiny/$VERSION'). If
+* C<agent> — A user-agent string (defaults to 'C<HTTP-Tiny/$VERSION>'). If
   C<agent> — ends in a space character, the default user-agent string is
   appended.
-* C<allow_credentialed_redirects> - If a 3xx redirects to a different scheme,
+* C<allow_credentialed_redirects> - If a C<3XX> redirects to a different scheme,
   host or port, by default HTTP::Tiny will strip away caller-supplied
   C<Authorization>, C<Cookie> and C<Proxy-Authorization> headers from the
   redirected request and from all subsequent requests in the chain. Set this to a
   true value to revert to the legacy behavior of forwarding those headers.
   Default is C<false>.
-* C<allow_downgrade> — If a 3xx redirect changes the scheme from C<https> to
+* C<allow_downgrade> — If a C<3XX> redirect changes the scheme from C<https> to
   plain C<http>, HTTP::Tiny will by default refuse to follow it, returning the
-  3xx response. Set this to a true value to revert to the legacy behavior of
+  C<3XX> response. Set this to a true value to revert to the legacy behavior of
   redirecting C<https> to C<http>. Default is C<false>.
 * C<cookie_jar> — An instance of L<HTTP::CookieJar> — or equivalent class
   that supports the C<add> and C<cookie_header> methods
@@ -237,7 +237,7 @@ These methods are shorthand for calling C<request()> for the given method.  The
 URL must have unsafe characters escaped and international domain names encoded.
 See C<request()> for valid options and a description of the response.
 
-The C<success> field of the response will be true if the status code is 2XX.
+The C<success> field of the response will be true if the status code is C<2XX>.
 
 =cut
 
@@ -270,7 +270,7 @@ The URL must have unsafe characters escaped and international domain names
 encoded.  See C<request()> for valid options and a description of the response.
 Any C<content-type> header or content in the options hashref will be ignored.
 
-The C<success> field of the response will be true if the status code is 2XX.
+The C<success> field of the response will be true if the status code is C<2XX>.
 
 =cut
 
@@ -311,8 +311,8 @@ C<If-Modified-Since> header with the modification timestamp of the file.  You
 may specify a different C<If-Modified-Since> header yourself in the C<<
 $options->{headers} >> hash.
 
-The C<success> field of the response will be true if the status code is 2XX
-or if the status code is 304 (unmodified).
+The C<success> field of the response will be true if the status code is C<2XX>
+or if the status code is C<304> (unmodified).
 
 If the file was modified and the server response includes a properly
 formatted C<Last-Modified> header, the file modification time will
@@ -440,7 +440,7 @@ will have the following keys:
 
 =for :list
 * C<success> —
-    Boolean indicating whether the operation returned a 2XX status code
+    Boolean indicating whether the operation returned a C<2XX> status code
 * C<url> —
     URL that provided the response. This is the URL of the request unless
     there were redirections, in which case it is the last URL queried
@@ -1980,10 +1980,10 @@ L<URI::_punycode> and L<Net::IDN::Encode>.
 =item *
 
 Redirection is very strict against the specification.  Redirection is only
-automatic for response codes 301, 302, 307 and 308 if the request method is
-'GET' or 'HEAD'.  Response code 303 is always converted into a 'GET'
-redirection, as mandated by the specification.  There is no automatic support
-for status 305 ("Use proxy") redirections.
+automatic for response codes C<301>, C<302>, C<307> and C<308> if the request
+method is 'GET' or 'HEAD'.  Response code C<303> is always converted into a
+'GET' redirection, as mandated by the specification.  There is no automatic
+support for status C<305> ("Use proxy") redirections.
 
 =item *
 
